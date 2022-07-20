@@ -241,7 +241,7 @@ class GameWidget(Widget):
     e_level = NumericProperty(1)
     allDead = False
     bg_texture = ObjectProperty(None)
-    hint_text = StringProperty('Press Space to Begin')
+    hint_text = StringProperty('PRESS SPACE TO BEGIN')
     up_k = False
     down_k = False
     left_k = False
@@ -372,11 +372,12 @@ class GameWidget(Widget):
         pass
 
     def _on_key_down(self, keyboard, keycode, text, modifiers):
+
         global GamePause
 
         if text == ' ':
 
-            if not GamePause or self.go_string != 'GAME OVER':
+            if not GamePause and self.go_string == '':
                 self.gun1shoot.play()
                 if self.e_level > 6:
                     self.GunShoot(3)
@@ -390,34 +391,38 @@ class GameWidget(Widget):
             if self.go_string == 'GAME OVER':
                 self.restart()
                 self.player.reset()
+
             if self.go_string == 'YOU WON!':
                 self.levelUp()
                 self.player.reset()
-            self.hint_text = ''
-            self.go_string = ''
-            GamePause = False
+
+
+            if self.hint_text != '':
+                self.hint_text = ''
+                self.go_string = ''
+                GamePause = False
 
         if not GamePause:
-            if text == 'w':
+            if text == 'w' or keycode == (273, 'up'):
                 if self.left_k or self.right_k:
                     self.player.velocity = Vector(self.player.velocity_x, steps)
 
                 else:
                     self.player.velocity = Vector(0, steps)
                     self.up_k = True
-            if text == 's':
+            if text == 's' or keycode == (274, 'down'):
                 if self.left_k or self.right_k:
                     self.player.velocity = Vector(self.player.velocity_x, -steps)
                 else:
                     self.player.velocity = Vector(0, -steps)
                     self.down_k = True
-            if text == 'a':
+            if text == 'a' or keycode == (276, 'left'):
                 if self.up_k or self.down_k:
                     self.player.velocity = Vector(-steps, self.player.velocity_x)
                 else:
                     self.player.velocity = Vector(-steps, 0)
                     self.left_k = True
-            if text == 'd':
+            if text == 'd' or keycode == (275, 'right'):
                 if self.up_k or self.down_k:
                     self.player.velocity = Vector(steps, self.player.velocity_x)
                 else:
@@ -505,14 +510,14 @@ class GameWidget(Widget):
         if self.allDead:
             GamePause = True
             self.go_string = 'YOU WON!'
-            self.hint_text = 'Press Space to Enter Next Level'
+            self.hint_text = 'PRESS SPACE FOR NEXT LEVEL'
 
         for eac in self.enemyList:
             if self.player.collides(eac):
                 if not eac.isDead():
                     GamePause = True
                     self.go_string = 'GAME OVER'
-                    self.hint_text = 'Press Space to Restart'
+                    self.hint_text = 'PRESS SPACE TO RESTART'
 
 
 class MyApp(App):
