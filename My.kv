@@ -1,0 +1,52 @@
+<Invader>:
+    size: [100, 100]
+    canvas:
+        Rectangle:
+            pos: self.pos
+            size: self.size
+            source: self.src
+<Bullet>:
+    canvas:
+        Color:
+            rgb: 0,0,0
+        Rectangle:
+
+<GameWidget>:
+    player: player_state
+    canvas.before:
+        Rectangle:
+            size: self.size
+            pos: self.pos
+            texture: self.bg_texture
+    canvas:
+        Rectangle:
+            size:10,self.height
+    Label:
+        font_size: 70
+        center_x: root.width / 2
+        top: root.top - (root.height / 2)
+        text: root.go_string
+        font_name: "Minecraft"
+    Label:
+        font_size: 70
+        center_x: root.width / 2
+        top: root.top - 200
+        text: 'Level ' + str(root.e_level)
+        font_name: "Minecraft"
+    Label:
+        font_size: 40
+        center_x: root.width / 2
+        top: root.top - (root.height - 200)
+        text: root.hint_text
+        font_name: "Minecraft"
+    Player:
+        id: player_state
+
+<Player>:
+    id: player_state
+    size: [100, 100]
+    canvas:
+        Rectangle:
+            pos: self.pos
+            size: self.size
+            source: self.src
