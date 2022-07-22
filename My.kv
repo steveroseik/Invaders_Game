@@ -5,11 +5,20 @@
             pos: self.pos
             size: self.size
             source: self.src
-<Bullet>:
+<Planet>:
+    size: [100, 100]
     canvas:
-        Color:
-            rgb: 0,0,0
         Rectangle:
+            pos: self.pos
+            size: self.size
+            source: self.src
+<Bullet>:
+
+    canvas:
+        Rectangle:
+            pos: self.pos
+            size: self.size
+            source: self.src
 
 <GameWidget>:
     player: player_state
@@ -27,18 +36,27 @@
         top: root.top - (root.height / 2)
         text: root.go_string
         font_name: "Minecraft"
+        color: 1,1,1,1
     Label:
         font_size: 70
         center_x: root.width / 2
         top: root.top - 200
-        text: 'Level ' + str(root.e_level)
+        text: root.title_s
         font_name: "Minecraft"
+        color: 1,1,1,1
     Label:
         font_size: 40
         center_x: root.width / 2
         top: root.top - (root.height - 200)
         text: root.hint_text
         font_name: "Minecraft"
+        color: 1,1,1,1
+    Label:
+        font_size: 30
+        pos: 150, root.top - 150
+        text: "ESC - Exit\n\nC - Change ship"
+        font_name: "Minecraft"
+        color: 1,1,1,1
     Player:
         id: player_state
 
