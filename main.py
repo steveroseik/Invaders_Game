@@ -21,11 +21,10 @@ class Planet(Widget):
     velocity_y = NumericProperty(0)
     velocity = ReferenceListProperty(velocity_x, velocity_y)
     image_path = StringProperty()
-    posX = 0
-    posY = 0
+    gap_delimeter = 0
     size_x = 0
     size_y = 0
-    timer = 0
+    timer = 300
     resistance = 1
     dead = False
     ov_anim = ['atlas://p1Anim.atlas/',
@@ -43,9 +42,16 @@ class Planet(Widget):
 
     def __init__(self, e, **kwargs):
         super().__init__(**kwargs)
-        randY = random.choice([1.5, 2, 2.5, 3, 3.5, 4])
-        self.velocity = (0, -randY)
         self.opacity = 0.3
+        self.reset(e)
+        self.frame_count = self.f_index
+        for i in range(self.f_index, self.f_index + self.f_end):
+            self.frames.append('frame' + str(i))
+        self.ready = True
+
+    def reset(self, e):
+        randY = random.choice([1.5, 1.7, 1.9, 2.1, 2.2])
+        self.velocity = (0, -randY)
         if e == 1:
             self.eType = 0
             self.setSize(100, 100)
@@ -62,13 +68,7 @@ class Planet(Widget):
         elif e == 5:
             self.eType = 4
             self.setSize(75, 75)
-
-        self.pos = (random.randrange(200, Window.width) - 100, Window.height)
-
-        self.frame_count = self.f_index
-        for i in range(self.f_index, self.f_index + self.f_end):
-            self.frames.append('frame' + str(i))
-        self.ready = True
+        self.pos = (random.randrange(200, Window.width - 150), Window.height)
 
     def setSize(self, w, h):
         self.size_x = w
@@ -76,7 +76,9 @@ class Planet(Widget):
         self.size = (w, h)
 
     def animate(self, dt):
-        if self.ready:
+        self.gap_delimeter += dt
+        if self.gap_delimeter > 0.1:
+            self.gap_delimeter = 0
             self.frame_count += 1
             if self.frame_count >= (self.f_index + self.f_end) - 1:
                 self.frame_count = self.f_index
@@ -86,18 +88,21 @@ class Planet(Widget):
 
     def move(self):
         if self.pos[1] <= -200:
-            self.size = (0, 0)
-            self.dead = True
+            self.reset(random.randrange(0, 6))
         self.pos = Vector(self.velocity) + self.pos
 
     def isDead(self):
         return self.dead
 
-
+## ENEMY CLASS
+#
+#
 class Invader(Widget):
     image_path = StringProperty()
-    posX = 0
-    posY = 0
+
+    velocity_x = NumericProperty(0)
+    velocity_y = NumericProperty(0)
+    velocity = ReferenceListProperty(velocity_x, velocity_y)
     size_x = 0
     size_y = 0
     timer = 0
@@ -116,9 +121,13 @@ class Invader(Widget):
     f_index = 1
     f_end = 3
     ready = False
-
-    def __init__(self, e, **kwargs):
+    time_limit = 0
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+
+    def reset(self, e, r, x, y):
+        self.ready = False
         if e == 1:
             self.eType = 0
             self.setSize(200, 200)
@@ -155,9 +164,12 @@ class Invader(Widget):
             self.f_index = 5
             self.f_end = 4
 
+        self.frames.clear()
         self.frame_count = self.f_index
         for i in range(self.f_index, self.f_index + self.f_end):
             self.frames.append('frame' + str(i))
+        self.resistance = r
+        self.setPos(x, y)
         self.ready = True
 
     def setPos(self, x, y):
@@ -169,48 +181,57 @@ class Invader(Widget):
         self.size = (w, h)
 
     def hide(self):
-        self.size = (0, 0)
+        self.opacity = 0
+
+    def show(self):
+        self.opacity = 1
 
     def animate(self, dt):
-        if self.ready:
-            self.frame_count += 1
-            if self.frame_count >= (self.f_index + self.f_end) - 1:
-                self.frame_count = self.f_index
-            key = self.frames[self.frame_count]
-            self.src = self.ov_anim[self.eType] + key
+        if self.time_limit > 0:
+            self.time_limit -= dt * 20
+        else:
+            self.time_limit = 3
+
+            if self.ready:
+                self.frame_count += 1
+                if self.frame_count >= (self.f_index + self.f_end) - 1:
+                    self.frame_count = self.f_index - 1
+                key = self.frames[self.frame_count]
+                self.src = self.ov_anim[self.eType] + key
+
 
     def setResistance(self, r):
         self.resistance = r
 
-    def update(self, dt):
+    def move(self, dt):
         if not GamePause:
-            if self.timer == 0:
-                self.timer = 200
-                self.posX = random.choice([7, -7, 0])
-                if self.posX != 0:
-                    self.posY = random.choice([7, -7, 0])
+            if self.timer < 0:
+                self.timer = 40
+                self.velocity_x = random.choice([7, -7, 0])
+                if self.velocity_x != 0:
+                    self.velocity_y = random.choice([7, -7, 0])
                 else:
-                    self.posY = random.choice([7, -7])
-
+                    self.velocity_y = random.choice([7, -7])
             else:
-                self.timer -= 1
+                self.timer -= dt * 10
 
-            self.pos = ((self.pos[0] + self.posX), (self.pos[1] + self.posY))
+            self.pos = Vector(self.velocity) + self.pos
+            self.collision()
 
-    def collision(self, height, width):
+    def collision(self):
         if not self.dead:
-            if self.pos[1] < 0 or (self.pos[1] + self.size[1]) > height:
-                if self.pos[1] > height / 2:
-                    self.pos = (self.pos[0], height - self.size[1] - 5)
+            if self.pos[1] < 0 or (self.pos[1] + self.size[1]) > Window.height:
+                if self.pos[1] > Window.height / 2:
+                    self.pos = (self.pos[0], Window.height - self.size[1] - 5)
                 else:
                     self.pos = (self.pos[0], 5)
-                self.posY *= -1
-            if self.pos[0] < 0 or (self.pos[0] + self.size[0]) > width:
-                if self.pos[0] > width / 2:
-                    self.pos = (width - self.size[0] - 5, self.pos[1])
+                self.velocity_y *= -1
+            if self.pos[0] < 0 or (self.pos[0] + self.size[0]) > Window.width:
+                if self.pos[0] > Window.width / 2:
+                    self.pos = (Window.width - self.size[0] - 5, self.pos[1])
                 else:
                     self.pos = (5, self.pos[1])
-                self.posX *= -1
+                self.velocity_x *= -1
 
     def gotShot(self, e2):
         r1x = self.pos[0]
@@ -239,11 +260,20 @@ class Invader(Widget):
     def kill(self):
         self.size = (0, 0)
         self.dead = True
-        self.disabled = True
+        self.hide()
+        me = self.animate
+
+    def revive(self):
+        self.show()
+        self.dead = False
+        self.setSize(self.size_x, self.size_y)
 
 
 
 
+## Player CLASS
+#
+#
 class Player(Widget):
     velocity_x = NumericProperty(0)
     velocity_y = NumericProperty(0)
@@ -262,6 +292,7 @@ class Player(Widget):
         key = self.frames[self.frame_count]
         self.src = self.ov_anim + key
 
+    # enemy collision
     def collides(self, e2):
         r1x = self.pos[0]
         r1y = self.pos[1]
@@ -280,6 +311,7 @@ class Player(Widget):
     def move(self):
         global GamePause
         if not GamePause:
+            self.updatePlayerBoundaries()
             self.pos = Vector(self.velocity) + self.pos
 
     def reset(self):
@@ -297,6 +329,29 @@ class Player(Widget):
     def show(self):
         self.opacity = 1
 
+    # lock player inbound with window
+
+    def updatePlayerBoundaries(self):
+        if self.y <= 2 or (Window.height - 2) <= self.y + self.height:
+            if self.pos[1] > Window.height / 2:
+                self.pos = (self.pos[0], Window.height - 205)
+            else:
+                self.pos = (self.pos[0], 5)
+            self.velocity_y *= -1
+            self.velocity_y /= 10
+
+        if self.x <= 2 or (Window.width - 2) <= self.x + self.width:
+            if self.pos[0] > Window.width / 2:
+                self.pos = (Window.width - 205, self.pos[1])
+            else:
+                self.pos = (5, self.pos[1])
+
+            self.velocity_x *= -1
+            self.velocity_x /= 10
+
+## BULLET CLASS
+#
+#
 class Bullet(Widget):
     bullet_speed = 15
     velocity_x = 0
@@ -326,6 +381,11 @@ class Bullet(Widget):
 
     def shoot(self, height):
         self.pos = (self.pos[0] + self.velocity_x, self.pos[1] + self.velocity_y)
+
+    def outOfBounds(self):
+        if self.x < 0 or self.x > Window.width or self.y > Window.height:
+            return True
+        return False
 
     def kill(self):
         self.size = (0, 0)
@@ -358,6 +418,7 @@ class GameWidget(Widget):
     right_k = False
     shipSelect = True
     planetGen = 0
+    planetIndex = 0
 
     def scroll_texture(self, time_passed):
         self.bg_texture.uvpos = (self.bg_texture.uvpos[0], (self.bg_texture.uvpos[1]) % Window.height - time_passed/10)
@@ -373,14 +434,26 @@ class GameWidget(Widget):
         self._keyboard.bind(on_key_up=self._on_key_up)
         self.bg_texture = Image(source='starfield.png').texture
         self.bg_texture.wrap = 'repeat'
-        self.bg_texture.uvsize = (2, 2)
+        self.bg_texture.uvsize = (2, -2)
         self.go_string = ''
         self.hint_text = ''
-        self.player.pos = ((Window.width / 2) - 50, 200)
         self.player.size = (0, 0)
+        self.player.reset()
         self.gun1shoot = SoundLoader.load('laser6.mp3')
         self.shipMenu()
 
+        Clock.schedule_interval(self.updateGlobal, 1.0 / 60.0)
+        Clock.schedule_interval(self.enemyMovement, 1.0 / 60.0)
+        Clock.schedule_interval(self.scroll_texture, 1.0 / 60.0)
+        # generate stack of planets
+        for i in range(0, 10):
+            plan = Planet(random.choice([1, 2, 3, 4, 5]))
+            plan.y = Window.height + i*500
+            self.planets.append(plan)
+            self.add_widget(plan)
+
+
+        # set player spritesheet animation
         Clock.schedule_interval(self.player.animate, 0.05)
 
     def showSelectMenu(self):
@@ -409,131 +482,130 @@ class GameWidget(Widget):
         self.hint_text = ''
         self.go_string = ''
         self.title_s = 'SELECT YOUR SHIP'
-        with self.canvas.before:
-            self.ship1 = Player()
-            self.ship1.src = 'atlas://playerAnim3.atlas/frame0'
-            self.ship1.center_x = Window.width / 2 + 100
-            self.ship1.center_y = (Window.height / 2)
-            self.ship1.size = (300, 300)
-            self.ship1.ov_anim = 'atlas://playerAnim3.atlas/'
-            self.ship2 = Player()
+
+        self.ship1 = Player()
+        self.ship1.src = 'atlas://playerAnim3.atlas/frame0'
+        self.ship1.center_x = Window.width / 2 + 100
+        self.ship1.center_y = (Window.height / 2)
+        self.ship1.size = (300, 300)
+        self.ship1.ov_anim = 'atlas://playerAnim3.atlas/'
+        self.ship2 = Player()
+
+
+        self.ship2.src = 'atlas://playerAnim2.atlas/frame0'
+        self.ship2.center_x = Window.width / 2 + 650
+        self.ship2.center_y = (Window.height / 2)
+        self.ship2.ov_anim = 'atlas://playerAnim2.atlas/'
+        self.ship2.size = (300, 300)
+        Clock.schedule_interval(self.ship1.animate, 0.05)
+        Clock.schedule_interval(self.ship2.animate, 0.05)
+        self.menuSelect.append(self.ship1)
+        self.menuSelect.append(self.ship2)
+        self.add_widget(self.ship1)
+        self.add_widget(self.ship2)
+        with self.canvas:
             rect1 = Rectangle(source="arrowLeft.png")
             rect1.pos = (self.ship1.pos[0] + 100, self.ship1.pos[1] - 100)
             rect1.size = (100, 100)
-
-            self.ship2.src = 'atlas://playerAnim2.atlas/frame0'
-            self.ship2.center_x = Window.width / 2 + 650
-            self.ship2.center_y = (Window.height / 2)
-            self.ship2.ov_anim = 'atlas://playerAnim2.atlas/'
-            self.ship2.size = (300, 300)
             rect2 = Rectangle(source="arrowRight.png")
             rect2.pos = (self.ship2.pos[0] + 100, self.ship2.pos[1] - 100)
             rect2.size = (100, 100)
-            Clock.schedule_interval(self.ship1.animate, 0.05)
-            Clock.schedule_interval(self.ship2.animate, 0.05)
-            self.menuSelect.append(self.ship1)
-            self.menuSelect.append(self.ship2)
             self.menuBtns.append(rect1)
             self.menuBtns.append(rect2)
 
-    def generatePlanets(self):
-        if self.planetGen < 20000:
-            self.planetGen += random.randrange(0, 250, 5)
-        else:
-            self.planetGen = 0
-            with self.canvas.before:
-                self.p1 = Planet(random.choice([1, 2, 3, 4, 5]))
-                Clock.schedule_interval(self.p1.animate, 1.0 / 7.0)
-                self.planets.append(self.p1)
+    def generatePlanets(self, dt):
+        for planet in self.planets:
+            if not planet.isDead():
+                planet.move()
+                planet.animate(dt)
 
-    def switch_bg(self):
-        self.bg_texture.uvsize = (self.bg_texture.uvsize[0] * -1, self.bg_texture.uvsize[1] * -1)
 
     def GunShoot(self, type_n):
         if type_n == 0:
-            with self.canvas.before:
-                self.bull = Bullet()
-                self.bull.pos = ((self.player.x + 0.5 * self.player.width), self.player.y + self.player.height)
-                self.bull.src = self.bull.srcList[0]
-                self.bull.size = (10, 40)
-                self.bull.setDirection(2)
-                self.bullets.append(self.bull)
+            self.bull = Bullet()
+            self.bull.pos = ((self.player.x + 0.5 * self.player.width), self.player.y + self.player.height)
+            self.bull.src = self.bull.srcList[0]
+            self.bull.size = (10, 40)
+            self.bull.setDirection(2)
+            self.bullets.append(self.bull)
+            self.add_widget(self.bull)
 
         elif type_n == 1:
-            with self.canvas.before:
-                self.bull1 = Bullet()
-                self.bull1.pos=((self.player.x + 0.5 * self.player.width) - 10, self.player.y + self.player.height)
-                self.bull1.size = (10, 40)
-                self.bull2 = Bullet()
-                self.bull2.pos= ((self.player.x + 0.5 * self.player.width) + 10, self.player.y + self.player.height)
-                self.bull2.size = (10, 40)
-                self.bull2.setDirection(2)
-                self.bull1.setDirection(2)
-                self.bull1.setType(0)
-                self.bull2.setType(0)
-                self.bullets.append(self.bull1)
-                self.bullets.append(self.bull2)
+            self.bull1 = Bullet()
+            self.bull1.pos=((self.player.x + 0.5 * self.player.width) - 10, self.player.y + self.player.height)
+            self.bull1.size = (10, 40)
+            self.bull2 = Bullet()
+            self.bull2.pos= ((self.player.x + 0.5 * self.player.width) + 10, self.player.y + self.player.height)
+            self.bull2.size = (10, 40)
+            self.bull2.setDirection(2)
+            self.bull1.setDirection(2)
+            self.bull1.setType(0)
+            self.bull2.setType(0)
+            self.bullets.append(self.bull1)
+            self.bullets.append(self.bull2)
+            self.add_widget(self.bull1)
+            self.add_widget(self.bull2)
 
         elif type_n == 2:
-            with self.canvas.before:
-                self.bull1 = Bullet()
-                self.bull1.pos =((self.player.x + 0.5 * self.player.width) - 5, self.player.y + self.player.height)
-                self.bull1.size = (10, 40)
-                self.bull2 = Bullet()
-                self.bull2.pos = ((self.player.x + 0.5 * self.player.width), self.player.y + self.player.height)
-                self.bull2.size = (10, 40)
-                self.bull3 = Bullet()
-                self.bull3.pos = ((self.player.x + 0.5 * self.player.width) + 5, self.player.y + self.player.height)
-                self.bull3.size = (10, 40)
-                self.bull1.setDirection(3)
-                self.bull2.setDirection(2)
-                self.bull3.setDirection(1)
-                self.bull1.setType(1)
-                self.bull2.setType(1)
-                self.bull3.setType(1)
-                self.bullets.append(self.bull1)
-                self.bullets.append(self.bull2)
-                self.bullets.append(self.bull3)
+            self.bull1 = Bullet()
+            self.bull1.pos =((self.player.x + 0.5 * self.player.width) - 5, self.player.y + self.player.height)
+            self.bull1.size = (10, 40)
+            self.bull2 = Bullet()
+            self.bull2.pos = ((self.player.x + 0.5 * self.player.width), self.player.y + self.player.height)
+            self.bull2.size = (10, 40)
+            self.bull3 = Bullet()
+            self.bull3.pos = ((self.player.x + 0.5 * self.player.width) + 5, self.player.y + self.player.height)
+            self.bull3.size = (10, 40)
+            self.bull1.setDirection(3)
+            self.bull2.setDirection(2)
+            self.bull3.setDirection(1)
+            self.bull1.setType(1)
+            self.bull2.setType(1)
+            self.bull3.setType(1)
+            self.bullets.append(self.bull1)
+            self.bullets.append(self.bull2)
+            self.bullets.append(self.bull3)
+            self.add_widget(self.bull1)
+            self.add_widget(self.bull2)
+            self.add_widget(self.bull3)
+
 
         elif type_n == 3:
-            with self.canvas.before:
-                indent = -20
-                for bType in range(0, 5):
-                    self.bull = Bullet()
-                    self.bull.pos=((self.player.x + 0.5 * self.player.width) - indent,  self.player.y + self.player.height)
-                    self.bull.size=(10, 40)
-                    self.bull.setDirection(bType)
-                    self.bull.setType(2)
-                    indent += 10
-                    self.bullets.append(self.bull)
+            indent = -20
+            for bType in range(0, 5):
+                self.bull = Bullet()
+                self.bull.pos = ((self.player.x + 0.5 * self.player.width) - indent,  self.player.y + self.player.height)
+                self.bull.size = (10, 40)
+                self.bull.setDirection(bType)
+                self.bull.setType(2)
+                indent += 10
+                self.bullets.append(self.bull)
+                self.add_widget(self.bull)
 
-    def generateEnemy(self):
-        randW = random.randint(200, Window.width - 200)
-        randH = random.randint(500, Window.height - 200)
-        if self.e_level > 8:
-            char = self.e_level % 8 + 1
-        else:
-            char = self.e_level
-        if self.e_level > 3:
-            res = 3
-        else:
-            res = self.e_level
+    def generateEnemies(self):
+        for enemy in self.enemyList:
 
-        if self.e_level > 5:
-            self.var = random.choice([1, 2, 3, 4, 5, 6, 7])
-        else:
-            self.var = self.e_level
+            randW = random.randint(200, Window.width - 200)
+            randH = random.randint(500, Window.height - 200)
+            if self.e_level > 8:
+                char = self.e_level % 8 + 1
+            else:
+                char = self.e_level
+            if self.e_level > 3:
+                res = 3
+            else:
+                res = self.e_level
 
-        self.enem = Invader(self.var)
-        self.enem.setPos(randW, randH)
-        Clock.schedule_interval(self.enem.animate, 0.2)
-        self.enem.setResistance(res)
+            if self.e_level > 5:
+                var = random.choice([1, 2, 3, 4, 5, 6, 7])
+            else:
+                var = self.e_level
 
-        return self.enem
+            enemy.reset(var, res, randW, randH)
+            enemy.revive()
 
-    def showEnemies(self):
-        for eac in self.enemyList:
-            eac.setSize(eac.size_x, eac.size_y)
+
+
 
     def _on_keyboard_close(self):
         self._keyboard.unbind(on_key_down=self._on_key_down)
@@ -557,7 +629,6 @@ class GameWidget(Widget):
             if not self.shipSelect:
                 for eac in self.enemyList:
                     eac.hide()
-                self.switch_bg()
                 self.showSelectMenu()
                 self.player.kill()
 
@@ -579,13 +650,11 @@ class GameWidget(Widget):
 
             if self.go_string == 'GAME OVER':
                 self.restart()
-                self.player.reset()
                 GamePause = False
 
             if self.go_string == 'YOU WON!':
 
                 self.levelUp()
-                self.player.reset()
                 GamePause = False
 
 
@@ -618,7 +687,6 @@ class GameWidget(Widget):
         else:
             if self.shipSelect:
                 if text == 'a' or keycode == (276, 'left'):
-                    self.switch_bg()
                     self.player.src = 'atlas://playerAnim3.atlas/frame0'
                     self.player.ov_anim = 'atlas://playerAnim3.atlas/'
                     self.player.size = (200, 200)
@@ -627,7 +695,6 @@ class GameWidget(Widget):
                     self.hideSelectMenu()
 
                 if text == 'd' or keycode == (275, 'right'):
-                    self.switch_bg()
                     self.player.src = 'atlas://playerAnim2.atlas/frame0'
                     self.player.ov_anim = 'atlas://playerAnim2.atlas/'
                     self.player.size = (200, 200)
@@ -635,89 +702,53 @@ class GameWidget(Widget):
                     GamePause = False
                     self.hideSelectMenu()
                 if not self.shipSelect:
-                    self.showEnemies()
+                    for enemy in self.enemyList:
+                        if not enemy.isDead():
+                            enemy.show()
                     if self.e_level == 0:
                         self.levelUp()
 
     def restart(self):
-
-        for eac in self.enemyList:
-            Clock.unschedule(eac.animate)
-            eac.kill()
-            self.remove_widget(eac)
-        for eax in self.bullets:
-            Clock.unschedule(eax.shoot)
-            eax.kill()
-            self.remove_widget(eax)
-        self.allDead = False
-        self.e_level = 1
-        self.title_s = 'Level ' + str(self.e_level)
-        self.go_string = ''
-        self.hint_text = ''
-        with self.canvas:
-            for i in range(0, self.e_level):
-                self.enem = self.generateEnemy()
-                Clock.schedule_interval(self.enem.update, 1.0 / 60.0)
-                self.enemyList.append(self.enem)
+        for enemy in self.enemyList:
+            self.remove_widget(enemy)
+        self.enemyList.clear()
+        self.e_level = 0
+        self.levelUp()
 
     def levelUp(self):
-        for eac in self.enemyList:
-            Clock.unschedule(eac.animate)
-            eac.kill()
-            self.remove_widget(eac)
-        # for eax in self.bullets:
-        #     Clock.unschedule(eax.shoot)
-        #     # eax.kill()
-        #     # self.remove_widget(eax)
+
+        self.player.reset()
         self.e_level += 1
         self.hint_text = ''
         self.go_string = ''
         self.title_s = 'Level ' + str(self.e_level)
         self.allDead = False
-        self.enemyList.clear()
-        # self.bullets.clear()
-        with self.canvas:
-            for i in range(0, self.e_level):
-                self.enem = self.generateEnemy()
-                self.enem.dead = False
-                Clock.schedule_interval(self.enem.update, 1.0 / 60.0)
-                self.enemyList.append(self.enem)
+        self.enemyList.append(Invader())
+        self.add_widget(self.enemyList[-1])
+        self.generateEnemies()
 
-    def checkPlayerBoundaries(self):
-        if self.player.y <= 2 or (self.player.y + self.player.height) - 2 >= self.height:
-            if self.player.pos[1] > Window.height / 2:
-                self.player.pos = (self.player.pos[0], Window.height - 205)
-            else:
-                self.player.pos = (self.player.pos[0], 5)
-            self.player.velocity_y *= -1
-            self.player.velocity_y /= 10
-            return True
-        if self.player.x <= 2 or (self.player.x + self.player.width) - 2 >= self.width:
-            if self.player.pos[0] > Window.width / 2:
-                self.player.pos = (Window.width - 205, self.player.pos[1])
-            else:
-                self.player.pos = (5, self.player.pos[1])
-
-            self.player.velocity_x *= -1
-            self.player.velocity_x /= 10
-            return True
-        return False
-
-    def update(self, dt):
-
-        self.generatePlanets()
-        for planet in self.planets:
-            if planet.isDead():
-                planet.size = (0, 0)
-                Clock.unschedule(planet.move)
-                self.remove_widget(planet)
-                self.planets.remove(planet)
-            else:
-                planet.move()
-        if not self.checkPlayerBoundaries():
-            self.player.move()
+    # move each enemy if alive
+    def enemyMovement(self, dt):
+        # manage enemy status
         for enemy in self.enemyList:
-            enemy.collision(self.height, self.width)
+            if not enemy.isDead() and not GamePause:
+                enemy.move(dt)
+
+    def clear_oldBullets(self):
+        for bullet in self.bullets:
+            if bullet.isDead() or bullet.outOfBounds():
+                self.remove_widget(bullet)
+                self.bullets.remove(bullet)
+
+    def updateGlobal(self, dt):
+        global GamePause
+        self.generatePlanets(dt)
+        self.player.move()
+        self.clear_oldBullets()
+
+        for enemy in self.enemyList:
+            enemy.animate(dt)
+
         for i in self.bullets:
             i.shoot(self.height)
             for enemy in self.enemyList:
@@ -732,10 +763,10 @@ class GameWidget(Widget):
         for e in self.enemyList:
             if e.isDead():
                 counter += 1
+
         if counter == len(self.enemyList):
             self.allDead = True
 
-        global GamePause
         if self.allDead and not self.shipSelect:
             GamePause = True
             self.go_string = 'YOU WON!'
@@ -755,8 +786,6 @@ class MyApp(App):
 
     def build(self):
         game = GameWidget()
-        Clock.schedule_interval(game.update, 1.0 / 60.0)
-        Clock.schedule_interval(game.scroll_texture, 1.0 / 60.0)
         return game
 
     pass
