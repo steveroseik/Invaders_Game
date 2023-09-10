@@ -19,4 +19,4 @@ This project showcases my ability to create high-performance games while adherin
 ## Demo
 
 
-[<img src="https://img.youtube.com/vi/jB9jLh0SDNk/0.jpg" width="50%">](https://www.youtube.com/watch?v=jB9jLh0SDNk "Now in Android: 50")
+[<img src="https://img.youtube.com/vi/jB9jLh0SDNk/0.jpg" width="50%">](https://www.youtube.com/watch?v=jB9jLh0SDNk "Video Demo")
